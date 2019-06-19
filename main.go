@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -31,15 +33,24 @@ func HandleRequest(req Request) (string, error) {
 		}
 	}
 
+	toBeHash := fmt.Sprintf("model:%s.id:%s", hiddenValue["model"], hiddenValue["id"])
+
+	fmt.Println(toBeHash)
+
+	hash := sha256.Sum256([]byte(toBeHash))
+
+	fmt.Println(hex.EncodeToString(hash[:]))
+
+	if hiddenValue["token"] != hex.EncodeToString(hash[:]) {
+		return "token is not valid", nil
+	}
+
 	bucket := fmt.Sprintf("internal-response-staging/%s", path)
 
 	data, err := json.Marshal(req.Data)
 	if err != nil {
 		return "", err
 	}
-
-	// bucket := "assets.kitabisa.xyz"
-	// filename := "test-aja.json"
 
 	// create a reader from data data in memory
 	reader := strings.NewReader(string(data))
