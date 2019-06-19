@@ -13,12 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-type Request struct {
-	Data map[string]interface{} `json:"data"`
-}
-
-func HandleRequest(req Request) (string, error) {
-	hiddenValue, _ := req.Data["form_response"].(map[string]interface{})["hidden"].(map[string]interface{})
+func HandleRequest(req map[string]interface{}) (string, error) {
+	hiddenValue, _ := req["form_response"].(map[string]interface{})["hidden"].(map[string]interface{})
 
 	var fileName string
 	var path string
@@ -43,7 +39,7 @@ func HandleRequest(req Request) (string, error) {
 
 	bucket := fmt.Sprintf("internal-response-staging/%s", path)
 
-	data, err := json.Marshal(req.Data)
+	data, err := json.Marshal(req)
 	if err != nil {
 		return "invalid to marshal data", err
 	}
