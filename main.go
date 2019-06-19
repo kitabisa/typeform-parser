@@ -35,21 +35,17 @@ func HandleRequest(req Request) (string, error) {
 
 	toBeHash := fmt.Sprintf("model:%s.id:%s", hiddenValue["model"], hiddenValue["id"])
 
-	fmt.Println(toBeHash)
-
 	hash := sha256.Sum256([]byte(toBeHash))
 
-	fmt.Println(hex.EncodeToString(hash[:]))
-
 	if hiddenValue["token"] != hex.EncodeToString(hash[:]) {
-		return "token is not valid", nil
+		return "invalid token", nil
 	}
 
 	bucket := fmt.Sprintf("internal-response-staging/%s", path)
 
 	data, err := json.Marshal(req.Data)
 	if err != nil {
-		return "", err
+		return "invalid to marshal data", err
 	}
 
 	// create a reader from data data in memory
@@ -66,12 +62,10 @@ func HandleRequest(req Request) (string, error) {
 		Body:   reader,
 	})
 	if err != nil {
-		fmt.Printf("Unable to upload %q to %q, %v", fileName, bucket, err)
+		return fmt.Sprintf("Unable to upload %q to %q, %v", fileName, bucket, err), nil
 	}
 
-	fmt.Printf("Successfully uploaded %q to %q\n", fileName, bucket)
-
-	return "Test", nil
+	return fmt.Sprintf("Successfully uploaded %q to %q\n", fileName, bucket), nil
 }
 
 func main() {
