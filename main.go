@@ -29,7 +29,7 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 
 		if i == "pathreference" {
 			pathReference = i
-			path = fmt.Sprintf("%s/%s", path, identifier)
+			path = fmt.Sprintf("/%s", identifier)
 		}
 	}
 
@@ -65,7 +65,7 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 		return fmt.Sprintf("Unable to upload %s to %s, %v", fileName, bucket, err), nil
 	}
 
-	return fmt.Sprintf("Successfully uploaded %s to %s\n", fileName, bucket), nil
+	return fmt.Sprintf("Successfully uploaded %s to %s", fileName, bucket), nil
 }
 
 func main() {
