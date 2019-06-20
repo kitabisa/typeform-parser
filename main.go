@@ -35,8 +35,6 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 
 	toBeHash := fmt.Sprintf("%s:%s.%s:%s", pathReference, hiddenValue["pathreference"], reference, hiddenValue["reference"])
 
-	fmt.Println(toBeHash)
-
 	hash := sha256.Sum256([]byte(toBeHash))
 
 	if hiddenValue["token"] != hex.EncodeToString(hash[:]) {
@@ -64,10 +62,10 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 		Body:   reader,
 	})
 	if err != nil {
-		return fmt.Sprintf("Unable to upload %q to %q, %v", fileName, bucket, err), nil
+		return fmt.Sprintf("Unable to upload %s to %s, %v", fileName, bucket, err), nil
 	}
 
-	return fmt.Sprintf("Successfully uploaded %q to %q\n", fileName, bucket), nil
+	return fmt.Sprintf("Successfully uploaded %s to %s\n", fileName, bucket), nil
 }
 
 func main() {
