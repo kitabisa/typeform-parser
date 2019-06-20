@@ -18,18 +18,24 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 
 	var fileName string
 	var path string
+	var pathReference string
+	var reference string
 	for i, identifier := range hiddenValue {
 		// iterate hidden value to determine path-to-save and file name of json file
-		if i == "id" {
+		if i == "reference" {
+			reference = i
 			fileName = fmt.Sprintf("%s.json", identifier)
 		}
 
-		if i == "model" {
+		if i == "pathreference" {
+			pathReference = i
 			path = fmt.Sprintf("%s/%s", path, identifier)
 		}
 	}
 
-	toBeHash := fmt.Sprintf("model:%s.id:%s", hiddenValue["model"], hiddenValue["id"])
+	toBeHash := fmt.Sprintf("%s:%s.%s:%s", pathReference, hiddenValue["pathreference"], reference, hiddenValue["reference"])
+
+	fmt.Println(toBeHash)
 
 	hash := sha256.Sum256([]byte(toBeHash))
 
