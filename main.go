@@ -6,11 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+)
+
+const (
+	// BucketName for save response typeform
+	BucketName = "internal-response-staging"
 )
 
 func HandleRequest(req map[string]interface{}) (string, error) {
@@ -20,11 +26,12 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 	var path string
 	var pathReference string
 	var reference string
+	timestamp := time.Now().Unix()
 	for i, identifier := range hiddenValue {
 		// iterate hidden value to determine path-to-save and file name of json file
 		if i == "reference" {
 			reference = i
-			fileName = fmt.Sprintf("%s.json", identifier)
+			fileName = fmt.Sprintf("%s_%d.json", identifier, timestamp)
 		}
 
 		if i == "pathreference" {
@@ -41,7 +48,7 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 		return "invalid token", nil
 	}
 
-	bucket := fmt.Sprintf("internal-response-staging/%s", path)
+	bucket := fmt.Sprintf("%s/%s", BucketName, path)
 
 	data, err := json.Marshal(req)
 	if err != nil {
