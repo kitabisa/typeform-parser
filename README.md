@@ -1,4 +1,4 @@
-# typeform-parser
+# typeform-response
 Typeform Parser adalah service untuk menyimpan response dari Typeform dalam bentuk json. Semua attribut yang dikirimkan oleh Typeform akan disimpan, tanpa melakukan pemilihan attribut tertentu
 
 ### how-to
