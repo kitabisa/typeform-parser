@@ -5,21 +5,22 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-const (
-	// BucketName for save response typeform
-	BucketName = "internal-response-staging"
-)
+// BucketName bucket name on AWS S3
+var BucketName = os.Getenv("BUCKETNAME")
 
-func HandleRequest(req map[string]interface{}) (string, error) {
+// HandleRequest handle post request from typeform
+func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, error) {
 	hiddenValue, _ := req["form_response"].(map[string]interface{})["hidden"].(map[string]interface{})
 
 	var fileName string
@@ -41,18 +42,17 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 	}
 
 	toBeHash := fmt.Sprintf("%s:%s.%s:%s", pathReference, hiddenValue["pathreference"], reference, hiddenValue["reference"])
-
 	hash := sha256.Sum256([]byte(toBeHash))
 
 	if hiddenValue["token"] != hex.EncodeToString(hash[:]) {
-		return "invalid token", nil
+		return events.APIGatewayProxyResponse{Body: "Invalid token.", StatusCode: 400}, nil
 	}
 
 	bucket := fmt.Sprintf("%s/%s", BucketName, path)
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		return "invalid to marshal data", err
+		return events.APIGatewayProxyResponse{Body: "Failed when marshal data.", StatusCode: 500}, err
 	}
 
 	// create a reader from data data in memory
@@ -69,10 +69,10 @@ func HandleRequest(req map[string]interface{}) (string, error) {
 		Body:   reader,
 	})
 	if err != nil {
-		return fmt.Sprintf("Unable to upload %s to %s, %v", fileName, bucket, err), nil
+		return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Unable to upload %s to %s, %v", fileName, bucket, err), StatusCode: 500}, err
 	}
 
-	return fmt.Sprintf("Successfully uploaded %s to %s", fileName, bucket), nil
+	return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Successfully uploaded %s to %s", fileName, bucket), StatusCode: 200}, nil
 }
 
 func main() {
