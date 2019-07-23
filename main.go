@@ -21,31 +21,35 @@ var BucketName = os.Getenv("BUCKETNAME")
 
 // HandleRequest handle post request from typeform
 func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, error) {
-	hiddenValue, _ := req["form_response"].(map[string]interface{})["hidden"].(map[string]interface{})
+	hiddenValue := req["form_response"].(map[string]interface{})["hidden"].(map[string]interface{})
 
 	var fileName string
 	var path string
 	var pathReference string
 	var reference string
-	timestamp := time.Now().Unix()
-	for i, identifier := range hiddenValue {
-		// iterate hidden value to determine path-to-save and file name of json file
-		if i == "reference" {
-			reference = i
-			fileName = fmt.Sprintf("%s_%d.json", identifier, timestamp)
+	if hiddenValue != nil {
+		timestamp := time.Now().Unix()
+		for i, identifier := range hiddenValue {
+			// iterate hidden value to determine path-to-save and file name of json file
+			if i == "reference" {
+				reference = i
+				fileName = fmt.Sprintf("%s_%d.json", identifier, timestamp)
+			}
+
+			if i == "pathreference" {
+				pathReference = i
+				path = fmt.Sprintf("/%s", identifier)
+			}
 		}
 
-		if i == "pathreference" {
-			pathReference = i
-			path = fmt.Sprintf("/%s", identifier)
+		toBeHash := fmt.Sprintf("%s:%s.%s:%s", pathReference, hiddenValue["pathreference"], reference, hiddenValue["reference"])
+		hash := sha256.Sum256([]byte(toBeHash))
+
+		if hiddenValue["token"] != hex.EncodeToString(hash[:]) {
+			return events.APIGatewayProxyResponse{Body: "Invalid token.", StatusCode: 400}, nil
 		}
-	}
-
-	toBeHash := fmt.Sprintf("%s:%s.%s:%s", pathReference, hiddenValue["pathreference"], reference, hiddenValue["reference"])
-	hash := sha256.Sum256([]byte(toBeHash))
-
-	if hiddenValue["token"] != hex.EncodeToString(hash[:]) {
-		return events.APIGatewayProxyResponse{Body: "Invalid token.", StatusCode: 400}, nil
+	} else {
+		return events.APIGatewayProxyResponse{Body: "No hidden values specified.", StatusCode: 500}, nil
 	}
 
 	bucket := fmt.Sprintf("%s/%s", BucketName, path)
