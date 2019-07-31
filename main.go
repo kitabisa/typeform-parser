@@ -89,7 +89,14 @@ func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, 
 	}
 
 	// send http request to notify services
-	campaignEndpoint := "https://campaign.ktbs.io/typeform-submit-notification/"
+	var campaignEndpoint string
+	switch pathReferenceValue {
+	case "campaign/medical-verification":
+		campaignEndpoint = "https://campaign.ktbs.io/typeform-submit-notification/"
+		break
+	default:
+	}
+
 	payload := NotificationPayload{
 		PathReference: pathReferenceValue,
 		Reference:     referenceValue,
