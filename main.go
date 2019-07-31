@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -15,6 +17,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
+
+// NotificationPayload for POST request
+type NotificationPayload struct {
+	PathReference string `json:"path_reference"`
+	Reference     int    `json:"reference"`
+}
 
 // BucketName bucket name on AWS S3
 var BucketName = os.Getenv("BUCKETNAME")
@@ -27,17 +35,21 @@ func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, 
 	var path string
 	var pathReference string
 	var reference string
+	var pathReferenceValue string
+	var referenceValue int
 	if hiddenValue != nil {
 		timestamp := time.Now().Unix()
 		for i, identifier := range hiddenValue {
 			// iterate hidden value to determine path-to-save and file name of json file
 			if i == "reference" {
 				reference = i
+				referenceValue = identifier.(int)
 				fileName = fmt.Sprintf("%s_%d.json", identifier, timestamp)
 			}
 
 			if i == "pathreference" {
 				pathReference = i
+				pathReference = fmt.Sprintf("%v", identifier)
 				path = fmt.Sprintf("/%s", identifier)
 			}
 		}
@@ -75,6 +87,28 @@ func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, 
 	if err != nil {
 		return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Unable to upload %s to %s, %v", fileName, bucket, err), StatusCode: 500}, err
 	}
+
+	// send http request to notify services
+	campaignEndpoint := "https://campaign.ktbs.io/typeform-submit-notification/"
+	payload := NotificationPayload{
+		PathReference: pathReferenceValue,
+		Reference:     referenceValue,
+	}
+
+	requestByte, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("error when marshaling struct: ", err)
+	}
+
+	client := &http.Client{}
+	r, err := http.NewRequest("POST", campaignEndpoint, bytes.NewReader(requestByte)) // URL-encoded payload
+
+	resp, err := client.Do(r)
+	if err != nil {
+		fmt.Println("failed when send notification to campaign service: ", err)
+	}
+
+	fmt.Println((resp))
 
 	return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Successfully uploaded %s to %s", fileName, bucket), StatusCode: 200}, nil
 }
