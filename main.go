@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/prometheus/common/log"
 )
 
 // NotificationPayload for POST request
@@ -26,6 +29,15 @@ type NotificationPayload struct {
 
 // BucketName bucket name on AWS S3
 var BucketName = os.Getenv("BUCKETNAME")
+
+// CampaignershipEndpoint endpoint to notify typeform submitted
+var CampaignershipEndpoint = os.Getenv("CAMPAIGNERSHIPENDPOINT")
+
+// CampaignershipUsername endpoint to notify typeform submitted
+var CampaignershipUsername = os.Getenv("CAMPAIGNERSHIPUSERNAME")
+
+// CampaignershipPassword endpoint to notify typeform submitted
+var CampaignershipPassword = os.Getenv("CAMPAIGNERSHIPPASSWORD")
 
 // HandleRequest handle post request from typeform
 func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, error) {
@@ -43,13 +55,13 @@ func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, 
 			// iterate hidden value to determine path-to-save and file name of json file
 			if i == "reference" {
 				reference = i
-				referenceValue = identifier.(int)
+				referenceValue, _ = strconv.Atoi(identifier.(string))
 				fileName = fmt.Sprintf("%s_%d.json", identifier, timestamp)
 			}
 
 			if i == "pathreference" {
 				pathReference = i
-				pathReference = fmt.Sprintf("%v", identifier)
+				pathReferenceValue = fmt.Sprintf("%v", identifier)
 				path = fmt.Sprintf("/%s", identifier)
 			}
 		}
@@ -89,33 +101,47 @@ func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, 
 	}
 
 	// send http request to notify services
-	var campaignEndpoint string
+	var endpoint string
+	var payload map[string]interface{}
 	switch pathReferenceValue {
 	case "campaign/medical-verification":
-		campaignEndpoint = "https://campaign.ktbs.io/typeform-submit-notification/"
+		endpoint = CampaignershipEndpoint
+		payload = map[string]interface{}{
+			"path":        fmt.Sprintf("/%s", pathReferenceValue),
+			"projects_id": referenceValue,
+			"status_id":   0,
+		}
+
+		requestByte, err := json.Marshal(payload)
+		if err != nil {
+			fmt.Println("error when marshaling struct: ", err)
+			return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Successfully uploaded %s to %s, but failed when marshaling paylod when trying to send event typeform submitted (%s:%d)", fileName, bucket, pathReferenceValue, referenceValue), StatusCode: 200}, nil
+		}
+
+		client := &http.Client{}
+		r, err := http.NewRequest("POST", endpoint, bytes.NewReader(requestByte)) // URL-encoded payload
+		if err != nil {
+			fmt.Println("failed when create http request: ", err)
+			return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Successfully uploaded %s to %s, but failed when create http request (%s:%d)", fileName, bucket, pathReferenceValue, referenceValue), StatusCode: 200}, nil
+		}
+
+		r.SetBasicAuth(CampaignershipUsername, CampaignershipPassword)
+		resp, err := client.Do(r)
+		if err != nil {
+			fmt.Println("failed when send notification to campaign service: ", err)
+			return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Successfully uploaded %s to %s, but failed when send event typeform submitted (%s:%d)", fileName, bucket, pathReferenceValue, referenceValue), StatusCode: 200}, nil
+		}
+
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		bodyString := string(bodyBytes)
+
+		return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Successfully uploaded %s to %s, with status code: %d and message: %s", fileName, bucket, resp.StatusCode, bodyString), StatusCode: 200}, nil
 		break
 	default:
 	}
-
-	payload := NotificationPayload{
-		PathReference: pathReferenceValue,
-		Reference:     referenceValue,
-	}
-
-	requestByte, err := json.Marshal(payload)
-	if err != nil {
-		fmt.Println("error when marshaling struct: ", err)
-	}
-
-	client := &http.Client{}
-	r, err := http.NewRequest("POST", campaignEndpoint, bytes.NewReader(requestByte)) // URL-encoded payload
-
-	resp, err := client.Do(r)
-	if err != nil {
-		fmt.Println("failed when send notification to campaign service: ", err)
-	}
-
-	fmt.Println((resp))
 
 	return events.APIGatewayProxyResponse{Body: fmt.Sprintf("Successfully uploaded %s to %s", fileName, bucket), StatusCode: 200}, nil
 }
