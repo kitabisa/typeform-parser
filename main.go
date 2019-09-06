@@ -125,10 +125,12 @@ func HandleRequest(req map[string]interface{}) (events.APIGatewayProxyResponse, 
 		return events.APIGatewayProxyResponse{Body: "No hidden values specified.", StatusCode: 500}, nil
 	}
 
-	// check if there is pending submission on DB
-	if !checkNoPendingSubmission(pathReferenceValue, referenceValue, 0) {
-		fmt.Println("sudah ada submit bos")
-		return events.APIGatewayProxyResponse{Body: "There is pending submission. not saving data", StatusCode: 400}, nil
+	if pathReferenceValue == "campaign/medical-verification" {
+		// check if there is pending submission on DB
+		if !checkNoPendingSubmission(pathReferenceValue, referenceValue, 0) {
+			fmt.Println("sudah ada submit bos")
+			return events.APIGatewayProxyResponse{Body: "There is pending submission. not saving data", StatusCode: 400}, nil
+		}
 	}
 
 	bucket := fmt.Sprintf("%s/%s", BucketName, path)
